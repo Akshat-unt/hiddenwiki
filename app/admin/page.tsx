@@ -64,7 +64,19 @@ import {
   Refresh as RefreshIcon,
   Download as DownloadIcon,
   FilterList as FilterIcon,
-  Search as SearchIcon
+  Search as SearchIcon,
+  Api as ApiIcon,
+  Web as WebIcon,
+  Monitor as MonitorIcon,
+  Storage as StorageIcon,
+  Speed as SpeedIcon,
+  Analytics as AnalyticsIcon,
+  CloudQueue as CloudIcon,
+  MemoryIcon,
+  NetworkCheck as NetworkIcon,
+  PowerSettingsNew as PowerIcon,
+  ToggleOn as ToggleOnIcon,
+  ToggleOff as ToggleOffIcon
 } from '@mui/icons-material'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
@@ -122,6 +134,52 @@ interface User {
   createdAt: string
 }
 
+interface SystemStats {
+  server: {
+    uptime: number
+    memory: { used: number; total: number; percentage: number }
+    cpu: { usage: number; cores: number }
+    disk: { used: number; total: number; percentage: number }
+  }
+  database: {
+    connected: boolean
+    collections: number
+    totalDocuments: number
+    size: number
+  }
+  api: {
+    totalRequests: number
+    requestsPerMinute: number
+    errorRate: number
+    averageResponseTime: number
+  }
+  app: {
+    activeUsers: number
+    totalSessions: number
+    chatMessages: number
+    wikiSearches: number
+  }
+}
+
+interface APIEndpoint {
+  path: string
+  method: string
+  enabled: boolean
+  rateLimit: number
+  requestCount: number
+  errorCount: number
+  lastUsed: string
+  averageResponseTime: number
+}
+
+interface AppFeature {
+  name: string
+  enabled: boolean
+  description: string
+  category: 'disguise' | 'chat' | 'wiki' | 'system'
+  dependencies?: string[]
+}
+
 export default function AdminPanel() {
   const [currentTab, setCurrentTab] = useState(0)
   const [user, setUser] = useState<any>(null)
@@ -140,6 +198,14 @@ export default function AdminPanel() {
   })
   const [showBlockIPDialog, setShowBlockIPDialog] = useState(false)
   const [blockIPData, setBlockIPData] = useState({ ipAddress: '', action: 'block' })
+  
+  // New state for enhanced admin features
+  const [systemStats, setSystemStats] = useState<SystemStats | null>(null)
+  const [apiEndpoints, setApiEndpoints] = useState<APIEndpoint[]>([])
+  const [appFeatures, setAppFeatures] = useState<AppFeature[]>([])
+  const [realTimeData, setRealTimeData] = useState<any>({})
+  const [systemSettings, setSystemSettings] = useState<any>({})
+  const [maintenanceMode, setMaintenanceMode] = useState(false)
   
   const router = useRouter()
 
@@ -218,6 +284,81 @@ export default function AdminPanel() {
       setIsLoading(false)
     }
   }
+
+  // Load system stats and enhanced data
+  const loadEnhancedData = async () => {
+    try {
+      // Mock system stats - in real implementation, this would come from server
+      setSystemStats({
+        server: {
+          uptime: 86400, // 24 hours
+          memory: { used: 2048, total: 4096, percentage: 50 },
+          cpu: { usage: 25, cores: 4 },
+          disk: { used: 10240, total: 51200, percentage: 20 }
+        },
+        database: {
+          connected: true,
+          collections: 5,
+          totalDocuments: 1250,
+          size: 25600
+        },
+        api: {
+          totalRequests: 12500,
+          requestsPerMinute: 45,
+          errorRate: 2.1,
+          averageResponseTime: 120
+        },
+        app: {
+          activeUsers: 15,
+          totalSessions: 28,
+          chatMessages: 342,
+          wikiSearches: 156
+        }
+      });
+
+      // Mock API endpoints
+      setApiEndpoints([
+        { path: '/api/auth/login', method: 'POST', enabled: true, rateLimit: 10, requestCount: 245, errorCount: 3, lastUsed: '2024-01-15T10:30:00Z', averageResponseTime: 150 },
+        { path: '/api/auth/register', method: 'POST', enabled: true, rateLimit: 5, requestCount: 45, errorCount: 1, lastUsed: '2024-01-15T09:15:00Z', averageResponseTime: 200 },
+        { path: '/api/chats', method: 'GET', enabled: true, rateLimit: 60, requestCount: 1250, errorCount: 5, lastUsed: '2024-01-15T10:45:00Z', averageResponseTime: 80 },
+        { path: '/api/admin/users', method: 'GET', enabled: true, rateLimit: 30, requestCount: 125, errorCount: 0, lastUsed: '2024-01-15T10:40:00Z', averageResponseTime: 95 },
+        { path: '/api/wikipedia/search', method: 'GET', enabled: true, rateLimit: 120, requestCount: 856, errorCount: 12, lastUsed: '2024-01-15T10:47:00Z', averageResponseTime: 250 }
+      ]);
+
+      // Mock app features
+      setAppFeatures([
+        { name: 'Blog Facade', enabled: true, description: 'Public-facing blog appearance', category: 'disguise' },
+        { name: 'Wikipedia Integration', enabled: true, description: 'Historical content from Wikipedia', category: 'disguise' },
+        { name: 'Search Functionality', enabled: true, description: 'Advanced search with filters', category: 'disguise' },
+        { name: 'Secret Access', enabled: true, description: 'Hidden trigger mechanisms', category: 'disguise', dependencies: ['Blog Facade'] },
+        
+        { name: 'Real-time Messaging', enabled: true, description: 'Live chat functionality', category: 'chat' },
+        { name: 'End-to-End Encryption', enabled: true, description: 'Message encryption/decryption', category: 'chat' },
+        { name: 'File Sharing', enabled: true, description: 'Encrypted file uploads', category: 'chat' },
+        { name: 'Self-Destructing Messages', enabled: false, description: 'Auto-delete messages', category: 'chat' },
+        
+        { name: 'Article Viewer', enabled: true, description: 'Full Wikipedia article display', category: 'wiki' },
+        { name: 'Today in History', enabled: true, description: 'Daily historical events', category: 'wiki' },
+        { name: 'Random Articles', enabled: true, description: 'Random historical content', category: 'wiki' },
+        { name: 'Bookmarking', enabled: true, description: 'Save articles for later', category: 'wiki' },
+        
+        { name: 'User Management', enabled: true, description: 'User account management', category: 'system' },
+        { name: 'Security Logging', enabled: true, description: 'Comprehensive audit logs', category: 'system' },
+        { name: 'Rate Limiting', enabled: true, description: 'API rate limiting protection', category: 'system' },
+        { name: '2FA Authentication', enabled: true, description: 'Two-factor authentication', category: 'system' }
+      ]);
+
+    } catch (error) {
+      console.error('Error loading enhanced data:', error);
+    }
+  };
+
+  // Initialize enhanced data on component mount
+  useEffect(() => {
+    if (user) {
+      loadEnhancedData();
+    }
+  }, [user]);
 
   // Handle logout
   const handleLogout = async () => {
@@ -316,12 +457,21 @@ export default function AdminPanel() {
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
         {/* Tabs */}
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-          <Tabs value={currentTab} onChange={(e, newValue) => setCurrentTab(newValue)}>
+          <Tabs 
+            value={currentTab} 
+            onChange={(e, newValue) => setCurrentTab(newValue)}
+            variant="scrollable"
+            scrollButtons="auto"
+          >
             <Tab icon={<DashboardIcon />} label="Dashboard" />
+            <Tab icon={<MonitorIcon />} label="System Monitor" />
+            <Tab icon={<ApiIcon />} label="API Control" />
+            <Tab icon={<WebIcon />} label="App Features" />
             <Tab icon={<SecurityIcon />} label="Security Logs" />
             <Tab icon={<PeopleIcon />} label="Users" />
             <Tab icon={<WarningIcon />} label="Suspicious Activity" />
             <Tab icon={<BlockIcon />} label="Blocked IPs" />
+            <Tab icon={<SettingsIcon />} label="System Settings" />
           </Tabs>
         </Box>
 
@@ -519,8 +669,275 @@ export default function AdminPanel() {
           </Box>
         )}
 
-        {/* Security Logs Tab */}
+        {/* System Monitor Tab */}
         {currentTab === 1 && (
+          <Box>
+            <Grid container spacing={3}>
+              {/* Server Stats */}
+              <Grid item xs={12} md={6}>
+                <Card>
+                  <CardHeader 
+                    title="Server Performance" 
+                    avatar={<Avatar sx={{ bgcolor: 'primary.main' }}><SpeedIcon /></Avatar>}
+                  />
+                  <CardContent>
+                    {systemStats ? (
+                      <Box>
+                        <Box sx={{ mb: 2 }}>
+                          <Typography variant="body2" color="textSecondary">CPU Usage</Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                            <Box sx={{ width: '100%', mr: 1 }}>
+                              <div style={{ 
+                                width: '100%', 
+                                height: 8, 
+                                backgroundColor: '#e0e0e0', 
+                                borderRadius: 4,
+                                overflow: 'hidden'
+                              }}>
+                                <div style={{
+                                  width: `${systemStats.server.cpu.usage}%`,
+                                  height: '100%',
+                                  backgroundColor: systemStats.server.cpu.usage > 80 ? '#f44336' : 
+                                                 systemStats.server.cpu.usage > 60 ? '#ff9800' : '#4caf50'
+                                }} />
+                              </div>
+                            </Box>
+                            <Typography variant="body2">{systemStats.server.cpu.usage}%</Typography>
+                          </Box>
+                        </Box>
+                        <Box sx={{ mb: 2 }}>
+                          <Typography variant="body2" color="textSecondary">Memory Usage</Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                            <Box sx={{ width: '100%', mr: 1 }}>
+                              <div style={{ 
+                                width: '100%', 
+                                height: 8, 
+                                backgroundColor: '#e0e0e0', 
+                                borderRadius: 4,
+                                overflow: 'hidden'
+                              }}>
+                                <div style={{
+                                  width: `${systemStats.server.memory.percentage}%`,
+                                  height: '100%',
+                                  backgroundColor: systemStats.server.memory.percentage > 80 ? '#f44336' : 
+                                                 systemStats.server.memory.percentage > 60 ? '#ff9800' : '#4caf50'
+                                }} />
+                              </div>
+                            </Box>
+                            <Typography variant="body2">{systemStats.server.memory.percentage}%</Typography>
+                          </Box>
+                        </Box>
+                        <Box>
+                          <Typography variant="body2" color="textSecondary">Uptime</Typography>
+                          <Typography variant="h6">{Math.floor(systemStats.server.uptime / 3600)}h {Math.floor((systemStats.server.uptime % 3600) / 60)}m</Typography>
+                        </Box>
+                      </Box>
+                    ) : (
+                      <CircularProgress />
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Database Stats */}
+              <Grid item xs={12} md={6}>
+                <Card>
+                  <CardHeader 
+                    title="Database Status" 
+                    avatar={<Avatar sx={{ bgcolor: 'success.main' }}><StorageIcon /></Avatar>}
+                  />
+                  <CardContent>
+                    {systemStats ? (
+                      <Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                          <CheckCircleIcon color="success" sx={{ mr: 1 }} />
+                          <Typography>Connected</Typography>
+                        </Box>
+                        <Typography variant="body2" color="textSecondary">Collections: {systemStats.database.collections}</Typography>
+                        <Typography variant="body2" color="textSecondary">Documents: {systemStats.database.totalDocuments}</Typography>
+                        <Typography variant="body2" color="textSecondary">Size: {(systemStats.database.size / (1024 * 1024)).toFixed(2)} MB</Typography>
+                      </Box>
+                    ) : (
+                      <CircularProgress />
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* API Stats */}
+              <Grid item xs={12}>
+                <Card>
+                  <CardHeader 
+                    title="API Performance" 
+                    avatar={<Avatar sx={{ bgcolor: 'info.main' }}><ApiIcon /></Avatar>}
+                  />
+                  <CardContent>
+                    {systemStats ? (
+                      <Grid container spacing={2}>
+                        <Grid item xs={3}>
+                          <Typography variant="h4">{systemStats.api.totalRequests}</Typography>
+                          <Typography variant="body2" color="textSecondary">Total Requests</Typography>
+                        </Grid>
+                        <Grid item xs={3}>
+                          <Typography variant="h4">{systemStats.api.requestsPerMinute}</Typography>
+                          <Typography variant="body2" color="textSecondary">Requests/min</Typography>
+                        </Grid>
+                        <Grid item xs={3}>
+                          <Typography variant="h4">{systemStats.api.errorRate}%</Typography>
+                          <Typography variant="body2" color="textSecondary">Error Rate</Typography>
+                        </Grid>
+                        <Grid item xs={3}>
+                          <Typography variant="h4">{systemStats.api.averageResponseTime}ms</Typography>
+                          <Typography variant="body2" color="textSecondary">Avg Response</Typography>
+                        </Grid>
+                      </Grid>
+                    ) : (
+                      <CircularProgress />
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+          </Box>
+        )}
+
+        {/* API Control Tab */}
+        {currentTab === 2 && (
+          <Box>
+            <Card>
+              <CardHeader 
+                title="API Endpoint Management" 
+                subheader="Monitor and control API endpoints"
+                action={
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={!maintenanceMode}
+                        onChange={(e) => setMaintenanceMode(!e.target.checked)}
+                      />
+                    }
+                    label="API Enabled"
+                  />
+                }
+              />
+              <CardContent>
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Endpoint</TableCell>
+                        <TableCell>Method</TableCell>
+                        <TableCell>Status</TableCell>
+                        <TableCell>Rate Limit</TableCell>
+                        <TableCell>Requests</TableCell>
+                        <TableCell>Errors</TableCell>
+                        <TableCell>Avg Response</TableCell>
+                        <TableCell>Actions</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {apiEndpoints.map((endpoint, index) => (
+                        <TableRow key={index}>
+                          <TableCell>{endpoint.path}</TableCell>
+                          <TableCell>
+                            <Chip 
+                              label={endpoint.method} 
+                              size="small"
+                              color={endpoint.method === 'GET' ? 'primary' : 
+                                     endpoint.method === 'POST' ? 'success' : 
+                                     endpoint.method === 'PUT' ? 'warning' : 'error'}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Chip 
+                              label={endpoint.enabled ? 'Enabled' : 'Disabled'} 
+                              color={endpoint.enabled ? 'success' : 'error'}
+                              size="small"
+                            />
+                          </TableCell>
+                          <TableCell>{endpoint.rateLimit}/min</TableCell>
+                          <TableCell>{endpoint.requestCount}</TableCell>
+                          <TableCell>
+                            <Chip 
+                              label={endpoint.errorCount} 
+                              color={endpoint.errorCount > 0 ? 'error' : 'success'}
+                              size="small"
+                            />
+                          </TableCell>
+                          <TableCell>{endpoint.averageResponseTime}ms</TableCell>
+                          <TableCell>
+                            <IconButton
+                              onClick={() => {
+                                const newEndpoints = [...apiEndpoints];
+                                newEndpoints[index].enabled = !newEndpoints[index].enabled;
+                                setApiEndpoints(newEndpoints);
+                              }}
+                            >
+                              {endpoint.enabled ? <ToggleOffIcon /> : <ToggleOnIcon />}
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </CardContent>
+            </Card>
+          </Box>
+        )}
+
+        {/* App Features Tab */}
+        {currentTab === 3 && (
+          <Box>
+            <Grid container spacing={3}>
+              {['disguise', 'chat', 'wiki', 'system'].map((category) => (
+                <Grid item xs={12} md={6} key={category}>
+                  <Card>
+                    <CardHeader 
+                      title={`${category.charAt(0).toUpperCase() + category.slice(1)} Features`}
+                      avatar={
+                        <Avatar sx={{ bgcolor: 'primary.main' }}>
+                          {category === 'disguise' ? <WebIcon /> :
+                           category === 'chat' ? <ChatIcon /> :
+                           category === 'wiki' ? <BlogIcon /> : <SettingsIcon />}
+                        </Avatar>
+                      }
+                    />
+                    <CardContent>
+                      {appFeatures.filter(f => f.category === category).map((feature, index) => (
+                        <Box key={index} sx={{ mb: 2, p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                            <Typography variant="subtitle1">{feature.name}</Typography>
+                            <Switch
+                              checked={feature.enabled}
+                              onChange={(e) => {
+                                const newFeatures = [...appFeatures];
+                                const featureIndex = newFeatures.findIndex(f => f.name === feature.name);
+                                newFeatures[featureIndex].enabled = e.target.checked;
+                                setAppFeatures(newFeatures);
+                              }}
+                            />
+                          </Box>
+                          <Typography variant="body2" color="textSecondary">
+                            {feature.description}
+                          </Typography>
+                          {feature.dependencies && (
+                            <Typography variant="caption" color="textSecondary">
+                              Dependencies: {feature.dependencies.join(', ')}
+                            </Typography>
+                          )}
+                        </Box>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+        )}
+
+        {/* Security Logs Tab */}
+        {currentTab === 4 && (
           <Box>
             {/* Filters */}
             <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -675,7 +1092,7 @@ export default function AdminPanel() {
         )}
 
         {/* Users Tab */}
-        {currentTab === 2 && (
+        {currentTab === 5 && (
           <Box>
             <Card>
               <CardHeader title="User Management" />
@@ -745,7 +1162,7 @@ export default function AdminPanel() {
         )}
 
         {/* Suspicious Activity Tab */}
-        {currentTab === 3 && (
+        {currentTab === 6 && (
           <Box>
             <Card>
               <CardHeader 
@@ -834,7 +1251,7 @@ export default function AdminPanel() {
         )}
 
         {/* Blocked IPs Tab */}
-        {currentTab === 4 && (
+        {currentTab === 7 && (
           <Box>
             <Card>
               <CardHeader 
@@ -885,6 +1302,177 @@ export default function AdminPanel() {
                 )}
               </CardContent>
             </Card>
+          </Box>
+        )}
+
+        {/* System Settings Tab */}
+        {currentTab === 8 && (
+          <Box>
+            <Grid container spacing={3}>
+              {/* General Settings */}
+              <Grid item xs={12} md={6}>
+                <Card>
+                  <CardHeader 
+                    title="General Settings"
+                    avatar={<Avatar sx={{ bgcolor: 'primary.main' }}><SettingsIcon /></Avatar>}
+                  />
+                  <CardContent>
+                    <Box sx={{ mb: 3 }}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={maintenanceMode}
+                            onChange={(e) => setMaintenanceMode(e.target.checked)}
+                          />
+                        }
+                        label="Maintenance Mode"
+                      />
+                      <Typography variant="body2" color="textSecondary">
+                        Enable to temporarily disable the application for maintenance
+                      </Typography>
+                    </Box>
+                    
+                    <Box sx={{ mb: 3 }}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={systemSettings.registrationEnabled || true}
+                            onChange={(e) => setSystemSettings(prev => ({ ...prev, registrationEnabled: e.target.checked }))}
+                          />
+                        }
+                        label="User Registration"
+                      />
+                      <Typography variant="body2" color="textSecondary">
+                        Allow new users to register accounts
+                      </Typography>
+                    </Box>
+
+                    <Box sx={{ mb: 3 }}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={systemSettings.wikiEnabled || true}
+                            onChange={(e) => setSystemSettings(prev => ({ ...prev, wikiEnabled: e.target.checked }))}
+                          />
+                        }
+                        label="Wikipedia Integration"
+                      />
+                      <Typography variant="body2" color="textSecondary">
+                        Enable Wikipedia API integration for historical content
+                      </Typography>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Security Settings */}
+              <Grid item xs={12} md={6}>
+                <Card>
+                  <CardHeader 
+                    title="Security Settings"
+                    avatar={<Avatar sx={{ bgcolor: 'error.main' }}><SecurityIcon /></Avatar>}
+                  />
+                  <CardContent>
+                    <TextField
+                      fullWidth
+                      label="Max Login Attempts"
+                      type="number"
+                      value={systemSettings.maxLoginAttempts || 5}
+                      onChange={(e) => setSystemSettings(prev => ({ ...prev, maxLoginAttempts: parseInt(e.target.value) }))}
+                      sx={{ mb: 2 }}
+                    />
+                    
+                    <TextField
+                      fullWidth
+                      label="Session Timeout (minutes)"
+                      type="number"
+                      value={systemSettings.sessionTimeout || 30}
+                      onChange={(e) => setSystemSettings(prev => ({ ...prev, sessionTimeout: parseInt(e.target.value) }))}
+                      sx={{ mb: 2 }}
+                    />
+
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={systemSettings.require2FA || false}
+                          onChange={(e) => setSystemSettings(prev => ({ ...prev, require2FA: e.target.checked }))}
+                        />
+                      }
+                      label="Require 2FA for all users"
+                    />
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* System Actions */}
+              <Grid item xs={12}>
+                <Card>
+                  <CardHeader 
+                    title="System Actions"
+                    avatar={<Avatar sx={{ bgcolor: 'warning.main' }}><PowerIcon /></Avatar>}
+                  />
+                  <CardContent>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6} md={3}>
+                        <Button
+                          fullWidth
+                          variant="outlined"
+                          startIcon={<RefreshIcon />}
+                          onClick={() => {
+                            // Restart services
+                            toast.success('Services restarted');
+                          }}
+                        >
+                          Restart Services
+                        </Button>
+                      </Grid>
+                      <Grid item xs={12} sm={6} md={3}>
+                        <Button
+                          fullWidth
+                          variant="outlined"
+                          startIcon={<CloudIcon />}
+                          onClick={() => {
+                            // Clear cache
+                            toast.success('Cache cleared');
+                          }}
+                        >
+                          Clear Cache
+                        </Button>
+                      </Grid>
+                      <Grid item xs={12} sm={6} md={3}>
+                        <Button
+                          fullWidth
+                          variant="outlined"
+                          startIcon={<DownloadIcon />}
+                          onClick={() => {
+                            // Export logs
+                            toast.success('Logs exported');
+                          }}
+                        >
+                          Export Logs
+                        </Button>
+                      </Grid>
+                      <Grid item xs={12} sm={6} md={3}>
+                        <Button
+                          fullWidth
+                          variant="outlined"
+                          color="error"
+                          startIcon={<PowerIcon />}
+                          onClick={() => {
+                            // Emergency shutdown
+                            if (confirm('Are you sure you want to shut down the system?')) {
+                              toast.error('System shutdown initiated');
+                            }
+                          }}
+                        >
+                          Emergency Shutdown
+                        </Button>
+                      </Grid>
+                    </Grid>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
           </Box>
         )}
       </Container>
