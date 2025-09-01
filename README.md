@@ -1,12 +1,19 @@
-# HiddenWiki - Anonymous Chat Application
+# HiddenWiki - Historical Knowledge Platform & Anonymous Chat
 
-A completely anonymous chat application disguised as a blog or informational site, similar to Wikipedia in appearance. This application provides secure, real-time communication for a small group of users while maintaining complete privacy and anonymity.
+A sophisticated dual-purpose application that serves as both a legitimate historical knowledge platform and a completely anonymous chat application. The public-facing site provides comprehensive historical research tools and educational resources, while maintaining hidden secure communication capabilities.
 
-## 🚀 Features
+## 🚀 Core Features
 
-### Core Functionality
-- **Blog Facade**: Public-facing site appears as a static blog with articles on neutral topics
-- **Secret Access**: Hidden trigger mechanism to access the chat (click sequence or secret phrase)
+### 📚 Historical Knowledge Platform (Public)
+- **Wikipedia Integration**: Real-time access to Wikipedia's vast historical database
+- **Advanced Search**: Comprehensive search with filters for time periods, regions, and categories
+- **Research Tools**: Citation generators, timeline builders, and note-taking systems
+- **Educational Features**: Interactive quizzes, study guides, and virtual tours
+- **Today in History**: Daily historical events and featured articles
+- **Mobile Responsive**: Fully optimized for all devices and screen sizes
+
+### 🔒 Anonymous Chat System (Hidden)
+- **Secret Access**: Hidden trigger mechanisms to access secure chat (click sequence or secret phrase)
 - **Real-time Chat**: Live messaging with Socket.io integration
 - **End-to-End Encryption**: Client-side encryption/decryption for all messages
 - **Role-based Access**: Admin and user roles with different permissions
@@ -34,9 +41,28 @@ A completely anonymous chat application disguised as a blog or informational sit
 - **Admin Monitoring**: Admin can view encrypted versions for security
 - **Audit Logs**: Comprehensive logging for admin review
 
-### Additional Features
-- **Mobile Responsive**: Fully responsive design for all devices
-- **PWA Support**: Progressive Web App capabilities
+### 🎓 Educational & Research Features
+- **Historical Dictionary**: Comprehensive glossary with etymology and cross-references
+- **Interactive Timeline**: Explore historical events across different time periods
+- **Virtual Museum Tours**: 360° tours of historical sites and archaeological discoveries
+- **Academic Citations**: Automatic citation generation in multiple formats (MLA, APA, Chicago)
+- **Research Notes**: Integrated note-taking system for historical research
+- **Bookmarking System**: Save and organize historical articles and resources
+
+### 🌐 Wikipedia Integration
+- **Live Search**: Real-time search with intelligent suggestions
+- **Featured Articles**: Daily featured historical content from Wikipedia
+- **Random Discovery**: Explore random historical articles and topics
+- **Related Content**: Intelligent recommendations for related historical topics
+- **Multi-category Browse**: Explore content by historical periods, regions, and themes
+- **Historical Events**: "On This Day" historical events for every date
+
+### 💻 Technical Features
+- **Progressive Web App**: Offline capabilities and app-like experience
+- **TypeScript**: Full type safety and enhanced development experience
+- **Responsive Design**: Optimized for desktop, tablet, and mobile devices
+- **Accessibility**: WCAG 2.1 compliant with screen reader support
+- **Performance**: Optimized loading with caching and lazy loading
 - **Push Notifications**: Browser notifications for new messages
 - **Theme Support**: Light/dark theme options
 - **Multi-language**: Internationalization support

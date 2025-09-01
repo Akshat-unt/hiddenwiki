@@ -23,7 +23,10 @@ import {
   ListItemIcon,
   Divider,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  Tab,
+  Tabs,
+  Paper
 } from '@mui/material'
 import {
   Search as SearchIcon,
@@ -34,20 +37,30 @@ import {
   TheaterComedy as CultureIcon,
   Public as GeographyIcon,
   Person as BiographyIcon,
-  Home as HomeIcon
+  Home as HomeIcon,
+  Book as BookIcon,
+  School as EducationIcon,
+  Timeline as TimelineIcon
 } from '@mui/icons-material'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
+
+// Import new components
+import HistoricalSearch from './components/HistoricalSearch'
+import SearchResults from './components/SearchResults'
+import ArticleViewer from './components/ArticleViewer'
+import TodayInHistory from './components/TodayInHistory'
+import FeaturedArticle from './components/FeaturedArticle'
+import { WikipediaSearchResult, wikipediaAPI } from './lib/wikipedia'
 
 // Secret trigger mechanism
 const SECRET_TRIGGER_SEQUENCE = ['click', 'click', 'click', 'click', 'click']
 const SECRET_PHRASE = 'hiddenwiki'
 
 export default function HomePage() {
-  const [searchQuery, setSearchQuery] = useState('')
+  // Secret access state
   const [clickCount, setClickCount] = useState(0)
   const [lastClickTime, setLastClickTime] = useState(0)
-  const [drawerOpen, setDrawerOpen] = useState(false)
   const [showLoginForm, setShowLoginForm] = useState(false)
   const [loginCredentials, setLoginCredentials] = useState({
     username: '',
@@ -55,6 +68,16 @@ export default function HomePage() {
     totpCode: ''
   })
   const [isLoading, setIsLoading] = useState(false)
+  
+  // UI state
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState(0)
+  
+  // Content state
+  const [searchResults, setSearchResults] = useState<WikipediaSearchResult[]>([])
+  const [selectedArticle, setSelectedArticle] = useState<string | null>(null)
+  const [currentView, setCurrentView] = useState<'home' | 'search' | 'article'>('home')
+  const [randomArticles, setRandomArticles] = useState<any[]>([])
   
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
@@ -83,19 +106,75 @@ export default function HomePage() {
     }
   }
 
-  // Handle search with secret phrase detection
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (searchQuery.toLowerCase() === SECRET_PHRASE) {
-      setShowLoginForm(true)
-      setSearchQuery('')
-      toast.success('Access granted')
-      return
+  // Initialize with random articles
+  useEffect(() => {
+    loadRandomArticles()
+  }, [])
+
+  const loadRandomArticles = async () => {
+    try {
+      const indianHistoryTopics = [
+        'Mahatma Gandhi',
+        'Mughal Empire',
+        'Indus Valley Civilization',
+        'Indian independence movement',
+        'Taj Mahal',
+        'Ashoka the Great',
+        'Chhatrapati Shivaji',
+        'Indian National Congress',
+        'Partition of India',
+        'Akbar',
+        'Chandragupta Maurya',
+        'Indian art',
+        'Vedic period',
+        'Delhi Sultanate',
+        'Jawaharlal Nehru',
+        'Subhas Chandra Bose'
+      ]
+      
+      const articles = []
+      for (let i = 0; i < 6; i++) {
+        const randomTopic = indianHistoryTopics[Math.floor(Math.random() * indianHistoryTopics.length)]
+        const article = await wikipediaAPI.getPageSummary(randomTopic)
+        if (article) articles.push(article)
+      }
+      setRandomArticles(articles)
+    } catch (error) {
+      console.error('Error loading random articles:', error)
     }
-    
-    // Normal search functionality would go here
-    toast('Search functionality coming soon')
+  }
+
+  // Handle search results
+  const handleSearchResults = (results: WikipediaSearchResult[]) => {
+    setSearchResults(results)
+    setCurrentView('search')
+  }
+
+  // Handle article selection
+  const handleArticleSelect = (title: string) => {
+    setSelectedArticle(title)
+    setCurrentView('article')
+  }
+
+  // Handle back navigation
+  const handleBack = () => {
+    if (currentView === 'article') {
+      setCurrentView('search')
+      setSelectedArticle(null)
+    } else if (currentView === 'search') {
+      setCurrentView('home')
+      setSearchResults([])
+    }
+  }
+
+  // Handle secret search phrase
+  const handleSecretSearch = (query: string) => {
+    if (query.toLowerCase() === SECRET_PHRASE) {
+      setShowLoginForm(true)
+      toast.success('Access granted')
+      return true
+    }
+    return false
   }
 
   // Handle login
@@ -169,12 +248,19 @@ export default function HomePage() {
   ]
 
   const categories = [
-    { name: 'History', icon: <HistoryIcon />, color: '#8B4513' },
-    { name: 'Science', icon: <ScienceIcon />, color: '#2E8B57' },
-    { name: 'Technology', icon: <TechnologyIcon />, color: '#4682B4' },
-    { name: 'Culture', icon: <CultureIcon />, color: '#DDA0DD' },
-    { name: 'Geography', icon: <GeographyIcon />, color: '#F4A460' },
-    { name: 'Biography', icon: <BiographyIcon />, color: '#CD853F' }
+    { name: 'Ancient India', icon: <HistoryIcon />, color: '#FF6B35', description: 'Explore ancient Indian civilizations, Vedic period, and early kingdoms', query: 'ancient India civilization Indus Valley Vedic' },
+    { name: 'Mughal Empire', icon: <CultureIcon />, color: '#8B4513', description: 'Discover the Mughal dynasty, architecture, and cultural influence', query: 'Mughal Empire India Akbar Shah Jahan Taj Mahal' },
+    { name: 'British Raj', icon: <GeographyIcon />, color: '#2E8B57', description: 'Learn about British colonial period and independence movement', query: 'British Raj India colonial independence Gandhi' },
+    { name: 'Indian Leaders', icon: <BiographyIcon />, color: '#CD853F', description: 'Influential Indian leaders, freedom fighters, and personalities', query: 'Gandhi Nehru Subhas Chandra Bose Indian leaders' },
+    { name: 'Indian Culture', icon: <CultureIcon />, color: '#DDA0DD', description: 'Art, literature, music, dance, festivals, and traditions of India', query: 'Indian culture art literature music dance festivals' },
+    { name: 'Indian Science', icon: <ScienceIcon />, color: '#4682B4', description: 'Scientific achievements, ancient knowledge, and modern innovations', query: 'Indian science Aryabhata mathematics astronomy Ayurveda' }
+  ]
+
+  const tabs = [
+    { label: 'Home', icon: <HomeIcon /> },
+    { label: 'Research Tools', icon: <BookIcon /> },
+    { label: 'Timeline', icon: <TimelineIcon /> },
+    { label: 'Education', icon: <EducationIcon /> }
   ]
 
   return (
@@ -198,30 +284,7 @@ export default function HomePage() {
           </Typography>
           
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <form onSubmit={handleSearch} style={{ display: 'flex' }}>
-              <TextField
-                size="small"
-                placeholder="Search HiddenWiki..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                sx={{ 
-                  backgroundColor: 'white',
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: 'transparent' },
-                    '&:hover fieldset': { borderColor: 'transparent' },
-                    '&.Mui-focused fieldset': { borderColor: 'transparent' }
-                  }
-                }}
-              />
-              <Button
-                type="submit"
-                variant="contained"
-                sx={{ ml: 1 }}
-                startIcon={<SearchIcon />}
-              >
-                Search
-              </Button>
-            </form>
+            {/* Main search is now on the homepage - this header is kept clean */}
           </Box>
         </Toolbar>
       </AppBar>
@@ -253,47 +316,287 @@ export default function HomePage() {
 
       {/* Main Content */}
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        {/* Conditional Content Based on Current View */}
+        {currentView === 'article' && selectedArticle ? (
+          <ArticleViewer
+            title={selectedArticle}
+            onBack={handleBack}
+            onArticleSelect={handleArticleSelect}
+          />
+        ) : currentView === 'search' ? (
+          <Box>
+            <Box sx={{ mb: 4 }}>
+              <HistoricalSearch
+                onSearchResults={handleSearchResults}
+                onArticleSelect={handleArticleSelect}
+                placeholder="Search historical topics, events, people..."
+                showFilters={true}
+              />
+            </Box>
+            <SearchResults
+              results={searchResults}
+              onArticleSelect={handleArticleSelect}
+            />
+          </Box>
+        ) : (
+          <>
         {/* Welcome Section */}
-        <Box sx={{ textAlign: 'center', mb: 6 }}>
-          <Typography variant="h1" component="h1" gutterBottom>
-            Welcome to HiddenWiki
-          </Typography>
-          <Typography variant="h5" color="text.secondary" paragraph>
-            Your gateway to knowledge across history, science, technology, culture, geography, and biography
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Discover fascinating articles written by experts in their fields
-          </Typography>
+                    <Box sx={{ textAlign: 'center', mb: 6 }}>
+              <Typography variant="h1" component="h1" gutterBottom>
+                Welcome to HiddenWiki
+              </Typography>
+              <Typography variant="h5" color="text.secondary" paragraph>
+                Your comprehensive gateway to historical knowledge, research tools, and educational resources
+              </Typography>
+              <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+                Explore fascinating historical articles, discover events, and access powerful research tools
+              </Typography>
+              
+              {/* Enhanced Search */}
+              <Box sx={{ maxWidth: 600, mx: 'auto', mb: 4 }}>
+                <HistoricalSearch
+                  onSearchResults={handleSearchResults}
+                  onArticleSelect={handleArticleSelect}
+                  placeholder="Search Indian history, leaders, culture, empires, independence..."
+                  showFilters={false}
+                />
+              </Box>
         </Box>
 
-        {/* Featured Posts */}
-        <Typography variant="h2" component="h2" gutterBottom sx={{ mb: 4 }}>
-          Featured Articles
+            {/* Navigation Tabs */}
+            <Paper sx={{ mb: 4 }}>
+              <Tabs
+                value={activeTab}
+                onChange={(_, newValue) => setActiveTab(newValue)}
+                centered
+                textColor="primary"
+                indicatorColor="primary"
+              >
+                {tabs.map((tab, index) => (
+                  <Tab
+                    key={index}
+                    label={tab.label}
+                    icon={tab.icon}
+                    iconPosition="start"
+                  />
+                ))}
+              </Tabs>
+            </Paper>
+
+            {/* Tab Content */}
+            {activeTab === 0 && (
+              <Grid container spacing={4}>
+                {/* Featured Article */}
+                <Grid item xs={12} md={6}>
+                  <FeaturedArticle onArticleSelect={handleArticleSelect} />
+                </Grid>
+
+                {/* Today in History */}
+                <Grid item xs={12} md={6}>
+                  <TodayInHistory onArticleSelect={handleArticleSelect} />
+                </Grid>
+              </Grid>
+            )}
+          </>
+        )}
+
+            {/* Research Tools Tab */}
+            {activeTab === 1 && (
+              <Grid container spacing={4}>
+                <Grid item xs={12} md={6}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>
+                        Historical Dictionary
+                      </Typography>
+                      <Typography color="text.secondary" paragraph>
+                        Look up historical terms, concepts, and definitions with cross-references and etymology.
+                      </Typography>
+                      <Button variant="outlined" fullWidth>
+                        Access Dictionary
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>
+                        Citation Generator
+                      </Typography>
+                      <Typography color="text.secondary" paragraph>
+                        Automatically generate proper citations for historical sources and Wikipedia articles.
+                      </Typography>
+                      <Button variant="outlined" fullWidth>
+                        Generate Citations
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>
+                        Timeline Builder
+                      </Typography>
+                      <Typography color="text.secondary" paragraph>
+                        Create custom historical timelines for research and educational purposes.
+                      </Typography>
+                      <Button variant="outlined" fullWidth>
+                        Build Timeline
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>
+                        Research Notes
+                      </Typography>
+                      <Typography color="text.secondary" paragraph>
+                        Organize your historical research with our integrated note-taking system.
+                      </Typography>
+                      <Button variant="outlined" fullWidth>
+                        Take Notes
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+            )}
+
+            {/* Timeline Tab */}
+            {activeTab === 2 && (
+              <Box sx={{ textAlign: 'center', py: 8 }}>
+                <TimelineIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="h5" gutterBottom>
+                  Interactive Historical Timeline
+                </Typography>
+                <Typography color="text.secondary" paragraph>
+                  Explore major historical events through an interactive timeline spanning from ancient civilizations to modern times.
+                </Typography>
+                <Button variant="contained" size="large">
+                  Launch Timeline
+                </Button>
+              </Box>
+            )}
+
+            {/* Education Tab */}
+            {activeTab === 3 && (
+              <Grid container spacing={4}>
+                <Grid item xs={12} md={4}>
+                  <Card>
+                    <CardContent sx={{ textAlign: 'center' }}>
+                      <EducationIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+                      <Typography variant="h6" gutterBottom>
+                        Historical Quizzes
+                      </Typography>
+                      <Typography color="text.secondary" paragraph>
+                        Test your knowledge with interactive quizzes on various historical topics.
+                      </Typography>
+                      <Button variant="outlined">
+                        Start Quiz
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Card>
+                    <CardContent sx={{ textAlign: 'center' }}>
+                      <BookIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+                      <Typography variant="h6" gutterBottom>
+                        Study Guides
+                      </Typography>
+                      <Typography color="text.secondary" paragraph>
+                        Comprehensive study guides for different historical periods and topics.
+                      </Typography>
+                      <Button variant="outlined">
+                        Browse Guides
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Card>
+                    <CardContent sx={{ textAlign: 'center' }}>
+                      <HistoryIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+                      <Typography variant="h6" gutterBottom>
+                        Virtual Tours
+                      </Typography>
+                      <Typography color="text.secondary" paragraph>
+                        Take virtual tours of historical sites and archaeological discoveries.
+                      </Typography>
+                      <Button variant="outlined">
+                        Start Tour
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+            )}
+
+        {/* Historical Categories Section - Only show on Home tab */}
+        {activeTab === 0 && (
+          <>
+                        <Typography variant="h2" component="h2" gutterBottom sx={{ mb: 4, mt: 6 }}>
+              Explore Indian Historical Periods
         </Typography>
         
         <Grid container spacing={4} sx={{ mb: 6 }}>
-          {featuredPosts.map((post) => (
-            <Grid item xs={12} md={4} key={post.id}>
-              <Card>
-                <CardContent>
-                  <Chip 
-                    label={post.category} 
-                    size="small" 
-                    sx={{ mb: 2 }}
-                  />
-                  <Typography variant="h5" component="h3" gutterBottom>
-                    {post.title}
+              {categories.map((category, index) => (
+                <Grid item xs={12} md={6} lg={4} key={category.name}>
+                  <Card 
+                    sx={{ 
+                      height: '100%', 
+                      display: 'flex', 
+                      flexDirection: 'column',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                        boxShadow: 4
+                      }
+                    }}
+                    onClick={() => {
+                      // Search for content in this category using the specific query
+                      const categoryQuery = category.query || category.name.toLowerCase();
+                      wikipediaAPI.searchHistoricalContent(categoryQuery, [], 20)
+                        .then(results => {
+                          if (results.length > 0) {
+                            handleSearchResults(results);
+                          } else {
+                            toast.error(`No content found for ${category.name}`);
+                          }
+                        })
+                        .catch(error => {
+                          console.error('Category search error:', error);
+                          toast.error('Failed to search category');
+                        });
+                    }}
+                  >
+                    <CardContent sx={{ flexGrow: 1, textAlign: 'center' }}>
+                      <Avatar 
+                        sx={{ 
+                          bgcolor: category.color, 
+                          width: 64, 
+                          height: 64, 
+                          mx: 'auto', 
+                          mb: 2 
+                        }}
+                      >
+                        {category.icon}
+                      </Avatar>
+                      <Typography variant="h6" component="h2" gutterBottom>
+                        {category.name}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" paragraph>
-                    {post.excerpt}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    By {post.author} • {new Date(post.publishedAt).toLocaleDateString()} • {post.views} views
+                        {category.description}
                   </Typography>
                 </CardContent>
-                <CardActions>
-                  <Button size="small" color="primary">
-                    Read More
+                    <CardActions sx={{ justifyContent: 'center', pb: 2 }}>
+                      <Button size="small" variant="outlined">
+                        Explore {category.name}
                   </Button>
                 </CardActions>
               </Card>
@@ -301,42 +604,50 @@ export default function HomePage() {
           ))}
         </Grid>
 
-        {/* Categories */}
+            {/* Random Historical Articles */}
+            {randomArticles.length > 0 && (
+              <>
         <Typography variant="h2" component="h2" gutterBottom sx={{ mb: 4 }}>
-          Explore Categories
+                  Explore Indian History & Heritage
         </Typography>
         
-        <Grid container spacing={3} sx={{ mb: 6 }}>
-          {categories.map((category) => (
-            <Grid item xs={6} sm={4} md={2} key={category.name}>
+                <Grid container spacing={4} sx={{ mb: 6 }}>
+                  {randomArticles.slice(0, 3).map((article, index) => (
+                    <Grid item xs={12} md={4} key={index}>
               <Card 
                 sx={{ 
-                  textAlign: 'center',
+                          height: '100%', 
+                          display: 'flex', 
+                          flexDirection: 'column',
                   cursor: 'pointer',
-                  transition: 'transform 0.2s',
-                  '&:hover': { transform: 'translateY(-4px)' }
-                }}
-              >
-                <CardContent>
-                  <Avatar 
-                    sx={{ 
-                      width: 56, 
-                      height: 56, 
-                      mx: 'auto', 
-                      mb: 2,
-                      backgroundColor: category.color 
-                    }}
-                  >
-                    {category.icon}
-                  </Avatar>
-                  <Typography variant="h6" component="h3">
-                    {category.name}
+                          '&:hover': { boxShadow: 4 }
+                        }}
+                        onClick={() => handleArticleSelect(article.title)}
+                      >
+                        <CardContent sx={{ flexGrow: 1 }}>
+                          <Typography variant="h6" component="h2" gutterBottom>
+                            {article.title}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" paragraph>
+                            {article.extract?.substring(0, 150)}...
                   </Typography>
                 </CardContent>
+                        <CardActions>
+                          <Button size="small" onClick={() => handleArticleSelect(article.title)}>
+                            Read Article
+                          </Button>
+                          <Button size="small" onClick={loadRandomArticles}>
+                            More Random
+                          </Button>
+                        </CardActions>
               </Card>
             </Grid>
           ))}
         </Grid>
+              </>
+            )}
+          </>
+        )}
 
         {/* Secret Trigger Area */}
         <Box 
