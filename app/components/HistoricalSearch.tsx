@@ -25,7 +25,10 @@ import {
   Clear as ClearIcon,
   History as HistoryIcon,
   AccessTime as TimeIcon,
-  Public as LocationIcon
+  Public as LocationIcon,
+  BookmarkBorder as BookmarkIcon,
+  Delete as DeleteIcon,
+  Star as StarIcon
 } from '@mui/icons-material';
 import { wikipediaAPI, WikipediaSearchResult } from '../lib/wikipedia';
 import { debounce } from 'lodash';
@@ -35,6 +38,21 @@ interface SearchFilters {
   timePeriod: string;
   yearRange: [number, number];
   region: string;
+}
+
+interface SearchHistoryItem {
+  query: string;
+  timestamp: number;
+  resultCount: number;
+  filters?: Partial<SearchFilters>;
+}
+
+interface SavedSearch {
+  id: string;
+  query: string;
+  filters: SearchFilters;
+  name: string;
+  timestamp: number;
 }
 
 interface HistoricalSearchProps {
@@ -91,6 +109,9 @@ export default function HistoricalSearch({
   const [loading, setLoading] = useState(false);
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
+  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
+  const [showSearchHistory, setShowSearchHistory] = useState(false);
   const [filters, setFilters] = useState<SearchFilters>({
     category: '',
     timePeriod: '',
@@ -98,11 +119,21 @@ export default function HistoricalSearch({
     region: ''
   });
 
-  // Load recent searches from localStorage
+  // Load search data from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem('historicalSearches');
-    if (saved) {
-      setRecentSearches(JSON.parse(saved));
+    const savedRecent = localStorage.getItem('historicalSearches');
+    if (savedRecent) {
+      setRecentSearches(JSON.parse(savedRecent));
+    }
+
+    const savedHistory = localStorage.getItem('searchHistory');
+    if (savedHistory) {
+      setSearchHistory(JSON.parse(savedHistory));
+    }
+
+    const savedBookmarks = localStorage.getItem('savedSearches');
+    if (savedBookmarks) {
+      setSavedSearches(JSON.parse(savedBookmarks));
     }
   }, []);
 
@@ -160,13 +191,70 @@ export default function HistoricalSearch({
         results = filterByRegion(results, filters.region);
       }
 
+      // Save to search history
+      addToSearchHistory(query, results.length);
+
       onSearchResults(results);
       setSuggestions([]);
+      setShowSearchHistory(false);
     } catch (error) {
       console.error('Search error:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Add search to history
+  const addToSearchHistory = (query: string, resultCount: number) => {
+    const historyItem: SearchHistoryItem = {
+      query,
+      timestamp: Date.now(),
+      resultCount,
+      filters: { ...filters }
+    };
+
+    const updatedHistory = [historyItem, ...searchHistory.filter(h => h.query !== query)].slice(0, 50);
+    setSearchHistory(updatedHistory);
+    localStorage.setItem('searchHistory', JSON.stringify(updatedHistory));
+  };
+
+  // Save current search
+  const saveCurrentSearch = () => {
+    if (!searchQuery.trim()) return;
+
+    const searchId = Date.now().toString();
+    const savedSearch: SavedSearch = {
+      id: searchId,
+      query: searchQuery,
+      filters: { ...filters },
+      name: `${searchQuery} - ${new Date().toLocaleDateString()}`,
+      timestamp: Date.now()
+    };
+
+    const updatedSaved = [savedSearch, ...savedSearches].slice(0, 20);
+    setSavedSearches(updatedSaved);
+    localStorage.setItem('savedSearches', JSON.stringify(updatedSaved));
+  };
+
+  // Load saved search
+  const loadSavedSearch = (savedSearch: SavedSearch) => {
+    setSearchQuery(savedSearch.query);
+    setFilters(savedSearch.filters);
+    handleSearch(savedSearch.query);
+  };
+
+  // Delete from search history
+  const deleteFromHistory = (query: string) => {
+    const updatedHistory = searchHistory.filter(h => h.query !== query);
+    setSearchHistory(updatedHistory);
+    localStorage.setItem('searchHistory', JSON.stringify(updatedHistory));
+  };
+
+  // Delete saved search
+  const deleteSavedSearch = (id: string) => {
+    const updatedSaved = savedSearches.filter(s => s.id !== id);
+    setSavedSearches(updatedSaved);
+    localStorage.setItem('savedSearches', JSON.stringify(updatedSaved));
   };
 
   // Filter results by time period
@@ -266,16 +354,31 @@ export default function HistoricalSearch({
               ),
               endAdornment: (
                 <InputAdornment position="end">
+                  <IconButton
+                    onClick={() => setShowSearchHistory(!showSearchHistory)}
+                    color={showSearchHistory ? 'primary' : 'default'}
+                    title="Search History"
+                  >
+                    <HistoryIcon />
+                  </IconButton>
+                  <IconButton
+                    onClick={saveCurrentSearch}
+                    disabled={!searchQuery.trim()}
+                    title="Save Search"
+                  >
+                    <BookmarkIcon />
+                  </IconButton>
                   {showFilters && (
                     <IconButton
                       onClick={() => setShowFiltersPanel(!showFiltersPanel)}
                       color={showFiltersPanel ? 'primary' : 'default'}
+                      title="Filters"
                     >
                       <FilterIcon />
                     </IconButton>
                   )}
                   {searchQuery && (
-                    <IconButton onClick={() => setSearchQuery('')}>
+                    <IconButton onClick={() => setSearchQuery('')} title="Clear">
                       <ClearIcon />
                     </IconButton>
                   )}
@@ -301,6 +404,107 @@ export default function HistoricalSearch({
           </Paper>
         )}
       />
+
+      {/* Search History Panel */}
+      <Collapse in={showSearchHistory}>
+        <Paper sx={{ mt: 2, p: 2, backgroundColor: 'background.default' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6">Search History & Saved Searches</Typography>
+            <Button
+              size="small"
+              onClick={() => setShowSearchHistory(false)}
+              startIcon={<ClearIcon />}
+            >
+              Close
+            </Button>
+          </Box>
+
+          <Grid container spacing={2}>
+            {/* Recent Search History */}
+            <Grid item xs={12} md={6}>
+              <Typography variant="subtitle1" gutterBottom>
+                Recent Searches
+              </Typography>
+              {searchHistory.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No search history yet
+                </Typography>
+              ) : (
+                <Box sx={{ maxHeight: 200, overflowY: 'auto' }}>
+                  {searchHistory.slice(0, 10).map((item, index) => (
+                    <Box key={index} sx={{ mb: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Chip
+                          label={item.query}
+                          size="small"
+                          onClick={() => {
+                            setSearchQuery(item.query);
+                            if (item.filters) {
+                              setFilters(item.filters as SearchFilters);
+                            }
+                            handleSearch(item.query);
+                          }}
+                          sx={{ cursor: 'pointer', maxWidth: 200 }}
+                        />
+                        <Typography variant="caption" color="text.secondary">
+                          {item.resultCount} results
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {new Date(item.timestamp).toLocaleDateString()}
+                        </Typography>
+                        <IconButton
+                          size="small"
+                          onClick={() => deleteFromHistory(item.query)}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </Grid>
+
+            {/* Saved Searches */}
+            <Grid item xs={12} md={6}>
+              <Typography variant="subtitle1" gutterBottom>
+                Saved Searches
+              </Typography>
+              {savedSearches.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No saved searches yet
+                </Typography>
+              ) : (
+                <Box sx={{ maxHeight: 200, overflowY: 'auto' }}>
+                  {savedSearches.map((saved) => (
+                    <Box key={saved.id} sx={{ mb: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Chip
+                          icon={<StarIcon />}
+                          label={saved.query}
+                          size="small"
+                          color="primary"
+                          onClick={() => loadSavedSearch(saved)}
+                          sx={{ cursor: 'pointer', maxWidth: 200 }}
+                        />
+                        <Typography variant="caption" color="text.secondary">
+                          {new Date(saved.timestamp).toLocaleDateString()}
+                        </Typography>
+                        <IconButton
+                          size="small"
+                          onClick={() => deleteSavedSearch(saved.id)}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </Grid>
+          </Grid>
+        </Paper>
+      </Collapse>
 
       {/* Advanced Filters Panel */}
       {showFilters && (

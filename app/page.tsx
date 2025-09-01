@@ -40,7 +40,8 @@ import {
   Home as HomeIcon,
   Book as BookIcon,
   School as EducationIcon,
-  Timeline as TimelineIcon
+  Timeline as TimelineIcon,
+  Bookmark as BookmarkIcon
 } from '@mui/icons-material'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
@@ -51,7 +52,11 @@ import SearchResults from './components/SearchResults'
 import ArticleViewer from './components/ArticleViewer'
 import TodayInHistory from './components/TodayInHistory'
 import FeaturedArticle from './components/FeaturedArticle'
+import BookmarkManager from './components/BookmarkManager'
+import ReadingHistory from './components/ReadingHistory'
+import QuickSearch, { useQuickSearch } from './components/QuickSearch'
 import { WikipediaSearchResult, wikipediaAPI } from './lib/wikipedia'
+import { useSwipeNavigation, useKeyboardShortcuts } from './hooks/useSwipeNavigation'
 
 // Secret trigger mechanism
 const SECRET_TRIGGER_SEQUENCE = ['click', 'click', 'click', 'click', 'click']
@@ -76,12 +81,56 @@ export default function HomePage() {
   // Content state
   const [searchResults, setSearchResults] = useState<WikipediaSearchResult[]>([])
   const [selectedArticle, setSelectedArticle] = useState<string | null>(null)
-  const [currentView, setCurrentView] = useState<'home' | 'search' | 'article'>('home')
+  const [currentView, setCurrentView] = useState<'home' | 'search' | 'article' | 'bookmarks' | 'history'>('home')
   const [randomArticles, setRandomArticles] = useState<any[]>([])
+  const [quickSearchOpen, setQuickSearchOpen] = useState(false)
   
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const router = useRouter()
+
+  // Quick search functionality
+  useQuickSearch(() => setQuickSearchOpen(true))
+
+  // Swipe navigation for mobile
+  useSwipeNavigation({
+    onSwipeLeft: () => {
+      if (currentView === 'home' && activeTab < tabs.length - 1) {
+        setActiveTab(prev => prev + 1);
+      } else if (currentView === 'article') {
+        handleBack();
+      }
+    },
+    onSwipeRight: () => {
+      if (currentView === 'home' && activeTab > 0) {
+        setActiveTab(prev => prev - 1);
+      } else if (currentView === 'search') {
+        setCurrentView('home');
+      }
+    }
+  });
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    'ctrl+k': () => setQuickSearchOpen(true),
+    'ctrl+h': () => {
+      setCurrentView('home');
+      setActiveTab(0);
+    },
+    'ctrl+b': () => {
+      setCurrentView('home');
+      setActiveTab(4); // Bookmarks tab
+    },
+    'ctrl+shift+h': () => {
+      setCurrentView('home');
+      setActiveTab(5); // Reading History tab
+    },
+    'escape': () => {
+      if (currentView === 'article' || currentView === 'search') {
+        handleBack();
+      }
+    }
+  });
 
   // Handle secret trigger clicks
   const handleSecretClick = () => {
@@ -177,6 +226,17 @@ export default function HomePage() {
     return false
   }
 
+  // Handle category click
+  const handleCategoryClick = async (category: any) => {
+    try {
+      const results = await wikipediaAPI.searchHistoricalContent(category.query, [], 20);
+      setSearchResults(results);
+      setCurrentView('search');
+    } catch (error) {
+      console.error('Category search error:', error);
+    }
+  }
+
   // Handle login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -260,7 +320,9 @@ export default function HomePage() {
     { label: 'Home', icon: <HomeIcon /> },
     { label: 'Research Tools', icon: <BookIcon /> },
     { label: 'Timeline', icon: <TimelineIcon /> },
-    { label: 'Education', icon: <EducationIcon /> }
+    { label: 'Education', icon: <EducationIcon /> },
+    { label: 'Bookmarks', icon: <BookmarkIcon /> },
+    { label: 'Reading History', icon: <HistoryIcon /> }
   ]
 
   return (
@@ -284,7 +346,35 @@ export default function HomePage() {
           </Typography>
           
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            {/* Main search is now on the homepage - this header is kept clean */}
+            <Button
+              color="inherit"
+              startIcon={<SearchIcon />}
+              onClick={() => setQuickSearchOpen(true)}
+              sx={{ 
+                textTransform: 'none',
+                display: { xs: 'none', sm: 'flex' }
+              }}
+            >
+              Quick Search
+              <Chip 
+                label="Ctrl+K" 
+                size="small" 
+                sx={{ 
+                  ml: 1, 
+                  height: 20, 
+                  fontSize: '0.7rem',
+                  backgroundColor: 'rgba(255,255,255,0.2)',
+                  color: 'inherit'
+                }} 
+              />
+            </Button>
+            <IconButton
+              color="inherit"
+              onClick={() => setQuickSearchOpen(true)}
+              sx={{ display: { xs: 'flex', sm: 'none' } }}
+            >
+              <SearchIcon />
+            </IconButton>
           </Box>
         </Toolbar>
       </AppBar>
@@ -297,13 +387,62 @@ export default function HomePage() {
       >
         <Box sx={{ width: 250 }} role="presentation">
           <List>
-            <ListItem button>
+            <ListItem 
+              button 
+              onClick={() => {
+                setCurrentView('home');
+                setActiveTab(0);
+                setDrawerOpen(false);
+              }}
+            >
               <ListItemIcon><HomeIcon /></ListItemIcon>
               <ListItemText primary="Home" />
             </ListItem>
+            <ListItem 
+              button 
+              onClick={() => {
+                setQuickSearchOpen(true);
+                setDrawerOpen(false);
+              }}
+            >
+              <ListItemIcon><SearchIcon /></ListItemIcon>
+              <ListItemText primary="Quick Search" secondary="Ctrl+K" />
+            </ListItem>
+            <ListItem 
+              button 
+              onClick={() => {
+                setCurrentView('home');
+                setActiveTab(4);
+                setDrawerOpen(false);
+              }}
+            >
+              <ListItemIcon><BookmarkIcon /></ListItemIcon>
+              <ListItemText primary="Bookmarks" secondary="Ctrl+B" />
+            </ListItem>
+            <ListItem 
+              button 
+              onClick={() => {
+                setCurrentView('home');
+                setActiveTab(5);
+                setDrawerOpen(false);
+              }}
+            >
+              <ListItemIcon><HistoryIcon /></ListItemIcon>
+              <ListItemText primary="Reading History" secondary="Ctrl+Shift+H" />
+            </ListItem>
             <Divider />
+            <Typography variant="subtitle2" sx={{ px: 2, py: 1, color: 'text.secondary' }}>
+              Explore Categories
+            </Typography>
             {categories.map((category) => (
-              <ListItem button key={category.name}>
+              <ListItem 
+                button 
+                key={category.name}
+                onClick={() => {
+                  handleCategoryClick(category);
+                  setDrawerOpen(false);
+                }}
+              >
                 <ListItemIcon sx={{ color: category.color }}>
                   {category.icon}
                 </ListItemIcon>
@@ -534,6 +673,16 @@ export default function HomePage() {
                   </Card>
                 </Grid>
               </Grid>
+            )}
+
+            {/* Bookmarks Tab */}
+            {activeTab === 4 && (
+              <BookmarkManager onArticleSelect={handleArticleSelect} />
+            )}
+
+            {/* Reading History Tab */}
+            {activeTab === 5 && (
+              <ReadingHistory onArticleSelect={handleArticleSelect} />
             )}
 
         {/* Historical Categories Section - Only show on Home tab */}
@@ -767,6 +916,14 @@ export default function HomePage() {
           </form>
         </Box>
       </Drawer>
+
+      {/* Quick Search Modal */}
+      <QuickSearch
+        open={quickSearchOpen}
+        onClose={() => setQuickSearchOpen(false)}
+        onArticleSelect={handleArticleSelect}
+        onSearchResults={handleSearchResults}
+      />
     </Box>
   )
 } 

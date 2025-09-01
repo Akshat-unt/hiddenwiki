@@ -22,6 +22,7 @@ import {
   Category as CategoryIcon
 } from '@mui/icons-material';
 import { WikipediaSearchResult } from '../lib/wikipedia';
+import SkeletonLoader from './SkeletonLoader';
 
 interface SearchResultsProps {
   results: WikipediaSearchResult[];
@@ -98,11 +99,7 @@ export default function SearchResults({
   };
 
   if (loading) {
-    return (
-      <Box sx={{ textAlign: 'center', py: 4 }}>
-        <Typography>Searching historical content...</Typography>
-      </Box>
-    );
+    return <SkeletonLoader type="search-results" count={5} />;
   }
 
   if (results.length === 0 && query) {

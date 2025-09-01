@@ -1,4 +1,5 @@
 // Wikipedia API integration utilities
+import { getFallbackArticle, getFallbackSearchResults } from './fallbackContent';
 
 export interface WikipediaSearchResult {
   title: string;
@@ -70,10 +71,21 @@ class WikipediaAPI {
       }
       
       const data = await response.json();
-      return data.query?.search || [];
+      const results = data.query?.search || [];
+      
+      // If no results from Wikipedia, try fallback content
+      if (results.length === 0) {
+        const fallbackResults = getFallbackSearchResults(query);
+        return fallbackResults.slice(0, limit);
+      }
+      
+      return results;
     } catch (error) {
       console.error('Wikipedia search error:', error);
-      return [];
+      
+      // Return fallback results on error
+      const fallbackResults = getFallbackSearchResults(query);
+      return fallbackResults.slice(0, limit);
     }
   }
 
@@ -81,23 +93,81 @@ class WikipediaAPI {
   async getPageSummary(title: string): Promise<WikipediaPage | null> {
     try {
       const encodedTitle = encodeURIComponent(title.replace(/ /g, '_'));
-      const response = await fetch(`${this.baseUrl}/page/summary/${encodedTitle}`);
       
-      if (!response.ok) {
-        throw new Error(`Wikipedia API error: ${response.status}`);
+      // Try REST API first
+      try {
+        const response = await fetch(`${this.baseUrl}/page/summary/${encodedTitle}`, {
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'HiddenWiki/1.0 (https://hiddenwiki.app) Educational Platform'
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          return {
+            title: data.title,
+            extract: data.extract,
+            thumbnail: data.thumbnail,
+            coordinates: data.coordinates,
+            pageid: data.pageid,
+            timestamp: data.timestamp
+          };
+        }
+      } catch (restError) {
+        console.warn('REST API failed, trying action API:', restError);
       }
       
-      const data = await response.json();
+      // Fallback to action API
+      const fallbackResponse = await fetch(
+        `${this.apiUrl}?action=query&format=json&origin=*&prop=extracts|pageimages|info&exintro=1&explaintext=1&exsectionformat=plain&piprop=thumbnail&pithumbsize=300&inprop=url&titles=${encodedTitle}`
+      );
+      
+      if (!fallbackResponse.ok) {
+        throw new Error(`Wikipedia API error: ${fallbackResponse.status}`);
+      }
+      
+      const fallbackData = await fallbackResponse.json();
+      const pages = fallbackData.query?.pages;
+      
+      if (!pages) {
+        throw new Error('No pages found');
+      }
+      
+      const pageId = Object.keys(pages)[0];
+      const page = pages[pageId];
+      
+      if (pageId === '-1') {
+        throw new Error('Page not found');
+      }
+      
       return {
-        title: data.title,
-        extract: data.extract,
-        thumbnail: data.thumbnail,
-        coordinates: data.coordinates,
-        pageid: data.pageid,
-        timestamp: data.timestamp
+        title: page.title,
+        extract: page.extract || 'No extract available.',
+        thumbnail: page.thumbnail ? {
+          source: page.thumbnail.source,
+          width: page.thumbnail.width,
+          height: page.thumbnail.height
+        } : undefined,
+        pageid: parseInt(pageId),
+        timestamp: new Date().toISOString()
       };
+      
     } catch (error) {
       console.error('Wikipedia page summary error:', error);
+      
+      // Try fallback content
+      const fallbackArticle = getFallbackArticle(title);
+      if (fallbackArticle) {
+        return {
+          title: fallbackArticle.title,
+          extract: fallbackArticle.extract,
+          content: fallbackArticle.content,
+          pageid: Math.floor(Math.random() * 1000000),
+          timestamp: new Date().toISOString()
+        };
+      }
+      
       return null;
     }
   }
@@ -106,15 +176,68 @@ class WikipediaAPI {
   async getPageContent(title: string): Promise<string | null> {
     try {
       const encodedTitle = encodeURIComponent(title.replace(/ /g, '_'));
-      const response = await fetch(`${this.baseUrl}/page/html/${encodedTitle}`);
       
-      if (!response.ok) {
-        throw new Error(`Wikipedia API error: ${response.status}`);
+      // Try REST API first for HTML content
+      try {
+        const response = await fetch(`${this.baseUrl}/page/html/${encodedTitle}`, {
+          headers: {
+            'Accept': 'text/html',
+            'User-Agent': 'HiddenWiki/1.0 (https://hiddenwiki.app) Educational Platform'
+          }
+        });
+        
+        if (response.ok) {
+          return await response.text();
+        }
+      } catch (restError) {
+        console.warn('HTML content API failed, trying action API:', restError);
       }
       
-      return await response.text();
+      // Fallback to action API for wikitext/extract
+      const fallbackResponse = await fetch(
+        `${this.apiUrl}?action=query&format=json&origin=*&prop=extracts&exlimit=1&explaintext=0&exsectionformat=wiki&titles=${encodedTitle}`
+      );
+      
+      if (!fallbackResponse.ok) {
+        throw new Error(`Wikipedia API error: ${fallbackResponse.status}`);
+      }
+      
+      const fallbackData = await fallbackResponse.json();
+      const pages = fallbackData.query?.pages;
+      
+      if (!pages) {
+        return null;
+      }
+      
+      const pageId = Object.keys(pages)[0];
+      const page = pages[pageId];
+      
+      if (pageId === '-1') {
+        return null;
+      }
+      
+      // Convert basic formatting to HTML
+      let content = page.extract || '';
+      if (content) {
+        // Basic text formatting
+        content = content
+          .replace(/\n\n/g, '</p><p>')
+          .replace(/\n/g, '<br>')
+          .replace(/^/, '<p>')
+          .replace(/$/, '</p>');
+      }
+      
+      return content;
+      
     } catch (error) {
       console.error('Wikipedia page content error:', error);
+      
+      // Try fallback content
+      const fallbackArticle = getFallbackArticle(title);
+      if (fallbackArticle) {
+        return fallbackArticle.content;
+      }
+      
       return null;
     }
   }

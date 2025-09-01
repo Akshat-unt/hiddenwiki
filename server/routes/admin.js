@@ -12,50 +12,90 @@ const router = express.Router();
 // All admin routes require admin authentication
 router.use(authenticateToken, requireAdmin);
 
-// Get all users
-router.get('/users', async (req, res) => {
+// Get dashboard data (main admin dashboard)
+router.get('/dashboard', async (req, res) => {
   try {
-    const { page = 1, limit = 50, search, role, status } = req.query;
-    const skip = (page - 1) * limit;
+    const { timeframe = 24 } = req.query;
+    const timeThreshold = new Date(Date.now() - timeframe * 60 * 60 * 1000);
 
-    // Build query
-    const query = {};
-    if (search) {
-      query.$or = [
-        { username: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } }
-      ];
-    }
-    if (role) {
-      query.role = role;
-    }
-    if (status) {
-      query.isActive = status === 'active';
-    }
+    // Get basic statistics
+    const [
+      userCount,
+      activeUserCount,
+      chatCount,
+      activeChatCount,
+      blogPostCount,
+      publishedPostCount,
+      recentLoginLogs,
+      suspiciousActivities,
+      loginStats
+    ] = await Promise.all([
+      User.countDocuments(),
+      User.countDocuments({ isActive: true }),
+      Chat.countDocuments(),
+      Chat.countDocuments({ isActive: true }),
+      BlogPost.countDocuments(),
+      BlogPost.countDocuments({ status: 'published' }),
+      LoginLog.find({ createdAt: { $gte: timeThreshold } })
+        .populate('user', 'username email role')
+        .sort({ createdAt: -1 })
+        .limit(10),
+      LoginLog.getSuspiciousActivities(timeframe, 50),
+      LoginLog.getStats(timeframe)
+    ]);
 
-    const users = await User.find(query)
-      .select('username email role isActive lastLogin loginAttempts createdAt updatedAt')
+    // Get recent users
+    const recentUsers = await User.find()
       .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
+      .limit(5)
+      .select('username email role createdAt lastLogin isActive');
 
-    const totalUsers = await User.countDocuments(query);
+    // Get recent chats
+    const recentChats = await Chat.find()
+      .sort({ updatedAt: -1 })
+      .limit(5)
+      .populate('participants', 'username profile.displayName');
 
     res.json({
-      message: 'Users retrieved successfully',
-      users,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(totalUsers / limit),
-        totalUsers,
-        hasNext: skip + users.length < totalUsers,
-        hasPrev: page > 1
+      message: 'Dashboard data retrieved successfully',
+      stats: {
+        users: {
+          total: userCount,
+          active: activeUserCount,
+          inactive: userCount - activeUserCount
+        },
+        chats: {
+          total: chatCount,
+          active: activeChatCount,
+          inactive: chatCount - activeChatCount
+        },
+        blogPosts: {
+          total: blogPostCount,
+          published: publishedPostCount,
+          draft: blogPostCount - publishedPostCount
+        },
+        loginActivity: {
+          totalAttempts: loginStats.totalAttempts || 0,
+          successful: loginStats.successful || 0,
+          failed: loginStats.failed || 0,
+          blocked: loginStats.blocked || 0,
+          uniqueUsers: loginStats.uniqueUsers || 0,
+          uniqueIPs: loginStats.uniqueIPs || 0
+        }
+      },
+      recentActivity: {
+        users: recentUsers,
+        chats: recentChats,
+        loginLogs: recentLoginLogs,
+        suspiciousActivities: suspiciousActivities.slice(0, 5)
       }
     });
-
   } catch (error) {
-    console.error('Get users error:', error);
-    res.status(500).json({ error: 'Internal server error while fetching users' });
+    console.error('Get dashboard data error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error while fetching dashboard data',
+      code: 'GET_DASHBOARD_ERROR'
+    });
   }
 });
 
@@ -112,7 +152,7 @@ router.get('/stats', async (req, res) => {
   }
 });
 
-// Get all users
+// Get all users (updated single version)
 router.get('/users', async (req, res) => {
   try {
     const { page = 1, limit = 20, search, role, status } = req.query;
@@ -123,7 +163,8 @@ router.get('/users', async (req, res) => {
     if (search) {
       query.$or = [
         { username: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } }
+        { email: { $regex: search, $options: 'i' } },
+        { 'profile.displayName': { $regex: search, $options: 'i' } }
       ];
     }
     
@@ -139,15 +180,17 @@ router.get('/users', async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
-      .select('-password');
+      .select('-password -twoFactorSecret');
     
     const total = await User.countDocuments(query);
     
     res.json({
+      message: 'Users retrieved successfully',
       users,
       pagination: {
         current: parseInt(page),
         total: Math.ceil(total / limit),
+        totalRecords: total,
         hasNext: page * limit < total,
         hasPrev: page > 1
       }
